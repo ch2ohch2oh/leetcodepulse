@@ -129,17 +129,38 @@
             height: 100% !important;
         }
 
-        @media (max-width: 600px) {
+        @media (max-width: 768px) {
             body {
-                padding: 2rem 1rem;
+                padding: 2.5rem 1rem;
             }
 
             h1 {
                 font-size: 1.75rem;
             }
 
+            .header-description {
+                font-size: 0.85rem;
+                margin-top: -0.5rem;
+                margin-bottom: 2rem;
+            }
+
             .stats-summary {
-                gap: 1.5rem;
+                flex-direction: column;
+                gap: 2rem;
+                margin-top: 1.5rem;
+            }
+
+            .stat-item {
+                width: 100%;
+            }
+
+            .chart-wrapper {
+                height: 300px;
+                margin-top: 1.5rem;
+            }
+
+            footer {
+                margin-top: 4rem;
             }
         }
     </style>
