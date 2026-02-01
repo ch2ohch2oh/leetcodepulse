@@ -50,7 +50,13 @@ def generate_html(indices: list, output_path: str):
 
     for idx in indices:
         # Indices info for dropdown
-        js_indices.append({"id": idx.get("id"), "name": idx.get("name")})
+        js_indices.append(
+            {
+                "id": idx.get("id"),
+                "name": idx.get("name"),
+                "description": idx.get("description", ""),
+            }
+        )
 
         # Read data
         input_csv = idx.get("output_file", "")

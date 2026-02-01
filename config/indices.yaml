@@ -1,9 +1,11 @@
 indices:
   - name: "LeetCode 75"
     id: "leetcode75"
+    description: "Ace Coding Interviews with 75 Qs"
     input_file: "data/leetcode75_problems.txt"
     output_file: "data/leetcode75_stats.csv"
   - name: "Two Sum"
     id: "twosum"
+    description: "The classic first problem of LeetCode"
     input_file: "data/twosum_problems.txt"
     output_file: "data/twosum_stats.csv"

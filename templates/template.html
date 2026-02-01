@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeetCode Index Monitor</title>
+    <title>LeetCode Pulse</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -44,10 +44,10 @@
         }
 
         .controls {
-            margin-bottom: 2rem;
             display: flex;
-            align-items: center;
-            gap: 1rem;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
         }
 
         label {
@@ -74,10 +74,11 @@
 
         .stats-summary {
             display: flex;
-            gap: 3rem;
+            gap: 4rem;
             margin-top: 2rem;
             font-size: 0.9rem;
             color: var(--secondary-text);
+            align-items: flex-start;
         }
 
         .stat-item span {
@@ -87,6 +88,20 @@
             color: var(--text-color);
             margin-top: 0.25rem;
             letter-spacing: -0.02em;
+        }
+
+        .index-description {
+            margin-top: 0.25rem;
+            font-size: 0.85rem;
+            color: #888;
+            max-width: 600px;
+        }
+
+        .header-description {
+            font-size: 0.95rem;
+            color: var(--secondary-text);
+            margin-top: -1rem;
+            margin-bottom: 2rem;
         }
 
         .chart-wrapper {
@@ -119,18 +134,23 @@
 
 <body>
     <header>
-        <h1>LeetCode Index Monitor</h1>
-
-        <div class="controls">
-            <!-- <label for="indexSelect">Index</label> -->
-            <select id="indexSelect">
-                <!-- Options will be populated by JS -->
-            </select>
-        </div>
+        <h1>LeetCode Pulse</h1>
+        <p class="header-description">Real-time solver activity across LeetCode problem sets.</p>
 
         <div class="stats-summary" id="statsSummary">
             <div class="stat-item">
-                Current
+                <div class="controls">
+                    Problem Set
+                    <select id="indexSelect">
+                        <!-- Options will be populated by JS -->
+                    </select>
+                    <div class="index-description" id="indexDescription">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+            <div class="stat-item">
+                Active LeetCoders
                 <span id="currentValue">-</span>
             </div>
             <div class="stat-item">
@@ -187,10 +207,10 @@
             }));
 
             updateChart(data, indexConfig.name);
-            updateSummary(data);
+            updateSummary(data, indexConfig);
         }
 
-        function updateSummary(data) {
+        function updateSummary(data, indexConfig) {
             if (!data || data.length === 0) return;
             const latest = data[data.length - 1];
 
@@ -198,6 +218,7 @@
                 month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
             });
             document.getElementById('currentValue').textContent = latest.total_users.toLocaleString();
+            document.getElementById('indexDescription').textContent = indexConfig.description || '';
         }
 
         function updateChart(data, label) {
@@ -210,7 +231,7 @@
                 data: {
                     labels: data.map(d => d.timestamp),
                     datasets: [{
-                        label: 'Users',
+                        label: 'Active LeetCoders',
                         data: data.map(d => d.total_users),
                         borderColor: '#000000',
                         borderWidth: 1.5,
@@ -243,7 +264,7 @@
                                     const d = new Date(items[0].label);
                                     return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                                 },
-                                label: (context) => `${context.parsed.y.toLocaleString()} users`
+                                label: (context) => `${context.parsed.y.toLocaleString()} Active LeetCoders`
                             }
                         }
                     },
