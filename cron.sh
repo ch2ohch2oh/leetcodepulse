@@ -12,7 +12,7 @@ if [ -f ".env" ]; then
 fi
 
 # Configuration - update with your repo details
-REPO_URL="github.com/ch2ohch2oh/leetcode75index.git"
+REPO_URL="github.com/ch2ohch2oh/leetcodepulse.git"
 
 echo "========================================"
 echo "Pulling latest changes from remote..."
