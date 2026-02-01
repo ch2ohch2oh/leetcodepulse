@@ -8,9 +8,9 @@ View the live dashboard: `https://YOUR_USERNAME.github.io/YOUR_REPO/`
 
 ## 📊 Features
 
-- **Automated data collection** via GitHub Actions (runs hourly)
+- **Manual data collection** for full control over updates
 - **Interactive dashboard** with time-series visualization
-- **GitHub Pages deployment** - no server required
+- **GitHub Pages deployment** - automated site build on push
 - **EST timezone** for consistent data recording
 
 ## Scripts
@@ -66,34 +66,18 @@ Pass `--fetch-plan` to `leetcode_client.py` to retrieve problem lists from LeetC
 ./leetcode_client.py --fetch-plan top-interview-150 -o data/top_150.txt
 ```
 
-## 🚀 Deployment Options
+## 🚀 Deployment
 
-### Option 1: GCP VM (Recommended) ⭐
+### GitHub Pages
 
-Deploy on a **free GCP e2-micro VM** with automated hourly cron job:
+1. Push this repository to GitHub.
+2. Enable GitHub Pages in settings (Settings → Pages → Source: GitHub Actions).
+3. The `Deploy Site` workflow will automatically build and deploy whenever you push data updates to `main`.
 
-**📖 See [GCP_DEPLOYMENT.md](GCP_DEPLOYMENT.md) for complete setup guide.**
-
-Quick start:
-1. Create GitHub Personal Access Token
-2. Edit `deploy-gcp.sh` with your project ID and token
-3. Run `./deploy-gcp.sh`
-4. VM will collect data every hour and push to GitHub
-
-**Benefits:**
-- ✅ 100% free (GCP free tier)
-- ✅ Reliable (avoids Cloudflare blocking)
-- ✅ Automated (runs 24/7)
-- ✅ Simple setup (one script)
-
-### Option 2: GitHub Pages (Manual/Local)
-
-**Note:** GitHub Actions may be blocked by Cloudflare. Use GCP VM for reliable automation.
-
-Quick start:
-1. Push this repository to GitHub
-2. Enable GitHub Pages (Settings → Pages → Source: GitHub Actions)
-3. Your dashboard will be live at `https://YOUR_USERNAME.github.io/YOUR_REPO/`
+**Workflow:**
+1. Update data locally using `./update_site.sh`.
+2. Review and commit the data changes yourself.
+3. Push to GitHub to trigger the site deployment.
 
 ## Local Development Setup
 
@@ -140,7 +124,8 @@ crontab -e
 - `data/leetcode75_problems.txt`: List of LeetCode 75 problem slugs (one per line)
 - `data/leetcode75_stats.csv`: Historical statistics (created by `collect_stats.py`)
 
-- `site/index.html`: Dashboard visualization
+- `templates/template.html`: Dashboard template file
+- `public/index.html`: Generated dashboard visualization (local build)
 
 - Python 3.7+
 - `requests>=2.31.0`
@@ -159,14 +144,14 @@ Problem: container-with-most-water                          | Online Users: 360
 
 ### Aggregate Statistics Collection
 ```
-$ ./collect_lc75_stats.py -v
+$ ./collect_stats.py -v
 Checking 75 problems...
   [1/75] merge-strings-alternately: 124 users
   [2/75] greatest-common-divisor-of-strings: 103 users
   ...
   [75/75] online-stock-span: 52 users
 
-✓ Results saved to /Users/dazhi/code/lcmonitor/data/lc75_stats.csv
+✓ Results saved to /Users/dazhi/code/lcmonitor/data/leetcode75_stats.csv
   Timestamp: 2026-01-29 21:11:13
   Total online users: 5706
   Problems checked: 75/75
@@ -185,14 +170,14 @@ MIT
 
 ## Visualization
 
-The `site/index.html` file provides a dashboard visualization of the collected data. This file is generated based on your configuration.
+The `public/index.html` file provides a dashboard visualization of the collected data. This file is generated based on your configuration and the template in `templates/template.html`.
 
 
 **Generate Dashboard:**
 ```bash
 ./venv/bin/python generate_site.py
 ```
-This updates `site/index.html`.
+This updates `public/index.html`.
 
 **Deployment:**
 The site is automatically deployed to GitHub Pages via the workflow in `.github/workflows/deploy.yml`. The build artifact is in the `public/` directory (not committed).

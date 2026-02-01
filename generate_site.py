@@ -61,7 +61,7 @@ def generate_html(indices: list, output_path: str):
         all_data[idx.get("id")] = parse_csv(input_csv)
 
     # Read template from file
-    template_path = Path("site/template.html")
+    template_path = Path("templates/template.html")
     # Inject JSON
     import json
 
@@ -104,7 +104,7 @@ def main():
         "-c", "--config", default="config/indices.yaml", help="Path to indices config"
     )
     parser.add_argument(
-        "-o", "--output", default="site/index.html", help="Output HTML file path"
+        "-o", "--output", default="public/index.html", help="Output HTML file path"
     )
 
     args = parser.parse_args()

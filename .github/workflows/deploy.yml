@@ -36,7 +36,7 @@ jobs:
 
       - name: Generate Site
         run: |
-          python generate_site.py -o public/index.html
+          python generate_site.py
           
       - name: Setup Pages
         uses: actions/configure-pages@v4

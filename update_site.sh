@@ -19,10 +19,10 @@ echo ""
 echo "========================================"
 echo "Generating site..."
 echo "========================================"
-# Default output to site/index.html (default of the script)
+# Default output to public/index.html (default of the script)
 # You can override this by passing arguments to this script if we forwarded them, 
 # but for now we keep it simple.
 python generate_site.py
 
 echo ""
-echo "Done! Site generated at site/index.html"
+echo "Done! Site generated at public/index.html"
