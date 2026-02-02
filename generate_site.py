@@ -8,6 +8,7 @@ import sys
 import yaml
 import csv
 from pathlib import Path
+from datetime import datetime
 
 
 def load_config(config_path: str) -> dict:
@@ -96,7 +97,9 @@ def generate_html(indices: list, output_path: str):
         template = env.get_template(template_name)
 
         html_content = template.render(
-            INDICES_JSON=json.dumps(js_indices), DATA_JSON=json.dumps(all_data)
+            INDICES_JSON=json.dumps(js_indices),
+            DATA_JSON=json.dumps(all_data),
+            GENERATED_AT=datetime.now().isoformat(),
         )
     except Exception as e:
         print(f"Error rendering template: {e}", file=sys.stderr)

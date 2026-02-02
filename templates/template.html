@@ -59,8 +59,7 @@
 
         select {
             padding: 0.2rem 0.4rem;
-            font-size: 0.85rem;
-            font-weight: 500;
+            font-size: inherit;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             background: #fff;
@@ -80,14 +79,11 @@
             gap: 0.4rem;
             margin-top: 1rem;
             font-size: 0.9rem;
-            color: var(--secondary-text);
+            color: var(--text-color);
             align-items: center;
         }
 
-        .stats-summary span#currentValue {
-            font-weight: 500;
-            color: var(--text-color);
-        }
+
 
         .index-description {
             margin-top: 0.25rem;
@@ -183,7 +179,7 @@
                 <!-- Options will be populated by JS -->
             </select>
             during the past
-            <select id="intervalSelect" style="margin-left: 0.5rem; padding: 0.1rem 0.3rem; font-size: 0.8rem;">
+            <select id="intervalSelect" style="margin-left: 0.5rem; padding: 0.1rem 0.3rem;">
                 <option value="hour" selected>hour</option>
                 <option value="day">day</option>
                 <option value="week">week</option>
@@ -206,6 +202,7 @@
         // Configuration injected by generator
         const INDICES = {{ INDICES_JSON | safe }};
         const ALL_DATA = {{ DATA_JSON | safe }};
+        const GENERATED_AT = "{{ GENERATED_AT }}";
 
         let chart = null;
         let currentRawData = [];
@@ -325,9 +322,12 @@
             if (!data || data.length === 0) return;
             const latest = data[data.length - 1];
 
-            document.getElementById('lastUpdate').textContent = latest.timestamp.toLocaleString('en-US', {
-                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-            });
+            // Last update is now static based on generation time
+            if (GENERATED_AT) {
+                document.getElementById('lastUpdate').textContent = new Date(GENERATED_AT).toLocaleString('en-US', {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+            }
 
             // Show new submissions if available, otherwise fallback
             // For the summary, maybe showing "Total Active" (which is now new submissions rate)
