@@ -70,8 +70,10 @@ def collect_index_stats(index_config: dict, verbose: bool = False) -> dict:
     if verbose:
         print(f"  Checking {len(slugs)} problems...")
 
-    # Collect online user counts
-    total_users = 0
+    # Collect stats
+
+    total_accepted = 0
+    total_submissions = 0
     successful_checks = 0
     failed_checks = 0
 
@@ -81,13 +83,14 @@ def collect_index_stats(index_config: dict, verbose: bool = False) -> dict:
         if i > 1:
             time.sleep(random.uniform(0.5, 1.5))
 
-        count = LeetCodeMonitor.get_online_users(slug)
+        stats = LeetCodeMonitor.get_question_stats(slug)
 
-        if count >= 0:
-            total_users += count
+        if stats:
+            total_accepted += stats.get("totalAccepted", 0)
+            total_submissions += stats.get("totalSubmission", 0)
             successful_checks += 1
             if verbose:
-                print(f"    [{i}/{len(slugs)}] {slug}: {count} users")
+                print(f"    [{i}/{len(slugs)}] {slug}: Success")
         else:
             failed_checks += 1
             if verbose:
@@ -95,12 +98,14 @@ def collect_index_stats(index_config: dict, verbose: bool = False) -> dict:
 
     # Prepare statistics
     timestamp = datetime.now(timezone.utc)
-    stats = {
+    stats_row = {
         "timestamp": timestamp,
-        "total_users": total_users,
+        "live_users": 0,  # No longer collecting live users
         "problems_checked": successful_checks,
         "problems_failed": failed_checks,
         "total_problems": len(slugs),
+        "total_accepted": total_accepted,
+        "total_submissions": total_submissions,
     }
 
     # Write to CSV
@@ -113,10 +118,12 @@ def collect_index_stats(index_config: dict, verbose: bool = False) -> dict:
         with open(output_file, "a", newline="") as f:
             fieldnames = [
                 "timestamp",
-                "total_users",
+                "live_users",
                 "problems_checked",
                 "problems_failed",
                 "total_problems",
+                "total_accepted",
+                "total_submissions",
             ]
             writer = csv.DictWriter(f, fieldnames=fieldnames)
 
@@ -124,12 +131,13 @@ def collect_index_stats(index_config: dict, verbose: bool = False) -> dict:
             if not file_exists:
                 writer.writeheader()
 
-            writer.writerow(stats)
+            writer.writerow(stats_row)
 
         if verbose:
             print(f"  ✓ Results saved to {output_file}")
             print(f"  Timestamp: {timestamp.strftime('%Y-%m-%d %H:%M:%S%z')}")
-            print(f"  Total online users: {total_users}")
+            print(f"  Total accepted: {total_accepted}")
+            print(f"  Total submissions: {total_submissions}")
             print(f"  Problems checked: {successful_checks}/{len(slugs)}")
             if failed_checks > 0:
                 print(f"  Failed checks: {failed_checks}")
@@ -138,7 +146,7 @@ def collect_index_stats(index_config: dict, verbose: bool = False) -> dict:
     except Exception as e:
         print(f"Error writing to CSV: {e}", file=sys.stderr)
 
-    return stats
+    return stats_row
 
 
 def main():

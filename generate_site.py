@@ -6,6 +6,7 @@ Generates the static site (index.html) based on the indices configuration.
 import argparse
 import sys
 import yaml
+import csv
 from pathlib import Path
 
 
@@ -26,21 +27,31 @@ def parse_csv(file_path: str) -> list:
 
     try:
         with open(path, "r") as f:
-            lines = f.readlines()
-            # Skip header
-            for line in lines[1:]:
-                parts = line.strip().split(",")
-                if len(parts) >= 2:
-                    try:
-                        # Validate we can parse it, but store raw values for JS
-                        # timestamp, total_users
-                        data.append(
-                            {"timestamp": parts[0], "total_users": int(parts[1])}
-                        )
-                    except ValueError:
-                        continue
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    # Validate we can parse it
+                    # live_users might be 0 for new data
+                    timestamp = row.get("timestamp")
+
+                    # Support both old and new column names for backward compatibility (though we migrated data)
+                    live = row.get("live_users") or row.get("total_users") or "0"
+
+                    total_accepted = row.get("total_accepted", "0")
+                    total_submissions = row.get("total_submissions", "0")
+
+                    data.append(
+                        {
+                            "timestamp": timestamp,
+                            "live_users": int(live),
+                            "total_accepted": int(total_accepted),
+                            "total_submissions": int(total_submissions),
+                        }
+                    )
+                except ValueError:
+                    continue
     except Exception as e:
-        print(f"Error parseing {file_path}: {e}", file=sys.stderr)
+        print(f"Error parsing {file_path}: {e}", file=sys.stderr)
     return data
 
 

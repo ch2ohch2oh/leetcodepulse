@@ -12,16 +12,76 @@ class LeetCodeMonitor:
     BASE_URI = "wss://collaboration-ws.leetcode.com/problems/{}"
 
     @classmethod
-    def get_online_users(cls, problem_slug: str) -> int:
+    def get_question_stats(cls, title_slug: str) -> dict:
         """
-        Connects to LeetCode's collaboration WebSocket to retrieve the number of online users
-        viewing a specific problem.
+        Fetches the submission and accepted counts for a question using GraphQL.
 
         Args:
-            problem_slug (str): The URL slug of the problem (e.g., 'two-sum').
+            title_slug (str): The URL slug of the question.
 
         Returns:
-            int: The number of online users, or -1 if an error occurs.
+            dict: A dictionary containing 'totalAccepted' and 'totalSubmission' (raw integers),
+                  or None if the request fails.
+        """
+        url = "https://leetcode.com/graphql"
+        query = """
+        query questionTitle($titleSlug: String!) {
+          question(titleSlug: $titleSlug) {
+            stats
+          }
+        }
+        """
+        variables = {"titleSlug": title_slug}
+
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36",
+        }
+
+        try:
+            response = requests.post(
+                url,
+                json={"query": query, "variables": variables},
+                headers=headers,
+                timeout=10,
+            )
+
+            if response.status_code != 200:
+                print(
+                    f"Request failed for {title_slug} with status code {response.status_code}",
+                    file=sys.stderr,
+                )
+                return None
+
+            data = response.json()
+            if (
+                "data" in data
+                and "question" in data["data"]
+                and data["data"]["question"]
+            ):
+                stats_str = data["data"]["question"].get("stats")
+                if stats_str:
+                    import json
+
+                    stats = json.loads(stats_str)
+                    return {
+                        "totalAccepted": stats.get("totalAcceptedRaw", 0),
+                        "totalSubmission": stats.get("totalSubmissionRaw", 0),
+                    }
+            return None
+
+        except Exception as e:
+            print(
+                f"An error occurred fetching stats for {title_slug}: {e}",
+                file=sys.stderr,
+            )
+            return None
+
+    @classmethod
+    def get_online_users(cls, problem_slug: str) -> int:
+        """
+        [DEPRECATED] Connects to LeetCode's collaboration WebSocket to retrieve the number of online users.
+        NOTE: This is often blocked by Cloudflare (403 Forbidden) on cloud environments.
         """
         uri = cls.BASE_URI.format(problem_slug)
 

@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LeetCode Pulse</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         :root {
             --bg-color: #ffffff;
@@ -175,9 +177,17 @@
         <p class="header-description">Real-time solver activity across LeetCode problem sets.</p>
 
         <div class="stats-summary" id="statsSummary">
-            There are <span id="currentValue">-</span> leetcoders currently working on
+            <span id="currentValue">-</span> new submissions
+            for
             <select id="indexSelect">
                 <!-- Options will be populated by JS -->
+            </select>
+            during the past
+            <select id="intervalSelect" style="margin-left: 0.5rem; padding: 0.1rem 0.3rem; font-size: 0.8rem;">
+                <option value="hour" selected>hour</option>
+                <option value="day">day</option>
+                <option value="week">week</option>
+                <option value="month">month</option>
             </select>
         </div>
         <div id="indexDescription" style="display: none;"></div>
@@ -199,26 +209,110 @@
         const ALL_DATA = {{ DATA_JSON | safe }};
 
         let chart = null;
+        let currentRawData = [];
 
-        // InitializeDropdown
-        const select = document.getElementById('indexSelect');
+        // Initialize Dropdowns
+        const indexSelect = document.getElementById('indexSelect');
+        const intervalSelect = document.getElementById('intervalSelect');
+
         INDICES.forEach(idx => {
             const option = document.createElement('option');
             option.value = idx.id;
             option.textContent = idx.name;
-            select.appendChild(option);
+            indexSelect.appendChild(option);
         });
 
-        // Event Listener
-        select.addEventListener('change', (e) => {
-            const selectedId = e.target.value;
+        // Event Listeners
+        indexSelect.addEventListener('change', (e) => {
+            updateView();
+        });
+
+        intervalSelect.addEventListener('change', (e) => {
+            updateView();
+        });
+
+        function updateView() {
+            const selectedId = indexSelect.value;
             const indexConfig = INDICES.find(i => i.id === selectedId);
             if (indexConfig) {
-                loadData(indexConfig);
+                // Determine interval
+                const interval = intervalSelect.value;
+                loadData(indexConfig, interval);
             }
-        });
+        }
 
-        function loadData(indexConfig) {
+        function aggregateData(rawData, interval) {
+            if (interval === 'raw') {
+                // Existing logic: simple delta between consecutive points
+                return rawData.map((d, i) => {
+                    const timestamp = new Date(d.timestamp);
+                    let newSubmissions = 0;
+                    if (i > 0) {
+                        const prev = rawData[i - 1];
+                        if (d.total_submissions > 0 && prev.total_submissions > 0) {
+                            newSubmissions = d.total_submissions - prev.total_submissions;
+                            if (newSubmissions < 0) newSubmissions = 0;
+                        }
+                    }
+                    return {
+                        timestamp: timestamp,
+                        value: newSubmissions,
+                        raw_submissions: d.total_submissions
+                    };
+                });
+            }
+
+            // Bucketize
+            const buckets = new Map();
+            rawData.forEach(d => {
+                const time = new Date(d.timestamp);
+                let key;
+                if (interval === 'hour') {
+                    time.setMinutes(0, 0, 0);
+                    key = time.getTime();
+                } else if (interval === 'day') {
+                    time.setHours(0, 0, 0, 0);
+                    key = time.getTime();
+                } else if (interval === 'week') {
+                    const day = time.getDay();
+                    const diff = time.getDate() - day;
+                    time.setDate(diff); // Set to Sunday
+                    time.setHours(0, 0, 0, 0);
+                    key = time.getTime();
+                } else if (interval === 'month') {
+                    time.setDate(1);
+                    time.setHours(0, 0, 0, 0);
+                    key = time.getTime();
+                }
+                // Store the last data point of the interval (data is chronological)
+                buckets.set(key, d);
+            });
+
+            const sortedKeys = Array.from(buckets.keys()).sort();
+            const result = [];
+
+            sortedKeys.forEach((key, i) => {
+                const currentData = buckets.get(key);
+                let val = 0;
+                if (i > 0) {
+                    const prevKey = sortedKeys[i - 1];
+                    const prevData = buckets.get(prevKey);
+                    // Calculate delta from the end of previous interval to end of current
+                    if (currentData.total_submissions > 0 && prevData.total_submissions > 0) {
+                        val = currentData.total_submissions - prevData.total_submissions;
+                        if (val < 0) val = 0;
+                    }
+                }
+                result.push({
+                    timestamp: new Date(key),
+                    value: val,
+                    raw_submissions: currentData.total_submissions
+                });
+            });
+            return result;
+        }
+
+        function loadData(indexConfig, interval) {
             const rawData = ALL_DATA[indexConfig.id];
 
             if (!rawData || rawData.length === 0) {
@@ -229,13 +323,10 @@
                 return;
             }
 
-            const data = rawData.map(d => ({
-                timestamp: new Date(d.timestamp),
-                total_users: d.total_users
-            }));
+            const processedData = aggregateData(rawData, interval);
 
-            updateChart(data, indexConfig.name);
-            updateSummary(data, indexConfig);
+            updateChart(processedData, indexConfig.name, interval);
+            updateSummary(processedData, indexConfig);
         }
 
         function updateSummary(data, indexConfig) {
@@ -245,11 +336,22 @@
             document.getElementById('lastUpdate').textContent = latest.timestamp.toLocaleString('en-US', {
                 month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
             });
-            document.getElementById('currentValue').textContent = latest.total_users.toLocaleString();
+
+            // Show new submissions if available, otherwise fallback
+            // For the summary, maybe showing "Total Active" (which is now new submissions rate)
+            // or we could show Total Submissions.
+            // Let's show the rate since that's what the chart shows.
+            document.getElementById('currentValue').textContent = latest.value.toLocaleString();
+
+            // Update label to reflect metric
+            // We can't easily change the text "leetcoders currently working on" in the HTML without selection logic
+            // But let's leave it for now or assume the user knows context changes.
+            // Ideally we change existing text: "New submissions in last interval for"
+
             document.getElementById('indexDescription').textContent = indexConfig.description || '';
         }
 
-        function updateChart(data, label) {
+        function updateChart(data, label, interval) {
             const ctx = document.getElementById('chart').getContext('2d');
 
             if (chart) chart.destroy();
@@ -257,17 +359,34 @@
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: data.map(d => d.timestamp),
                     datasets: [{
-                        label: 'Active LeetCoders',
-                        data: data.map(d => d.total_users),
+                        label: 'New Submissions',
+                        data: data.map(d => ({ x: d.timestamp, y: d.value })),
                         borderColor: '#000000',
                         borderWidth: 1.5,
                         backgroundColor: 'rgba(0,0,0,0)',
                         pointRadius: 0,
                         pointHoverRadius: 4,
                         pointHoverBackgroundColor: '#000000',
-                        tension: 0
+                        tension: 0,
+                        segment: {
+                            borderDash: ctx => {
+                                if (ctx.p0.skip || ctx.p1.skip) return undefined;
+
+                                // Calculate expected interval in ms
+                                let expected = 0;
+                                if (interval === 'hour') expected = 3600000;
+                                else if (interval === 'day') expected = 86400000;
+                                else if (interval === 'week') expected = 604800000;
+                                else if (interval === 'month') expected = 2592000000;
+
+                                // If difference is significantly larger (> 1.5x) than expected, make it dashed
+                                if (expected > 0 && (ctx.p1.parsed.x - ctx.p0.parsed.x) > expected * 1.5) {
+                                    return [6, 6];
+                                }
+                                return undefined;
+                            }
+                        }
                     }]
                 },
                 options: {
@@ -290,19 +409,34 @@
                             callbacks: {
                                 title: (items) => {
                                     const d = new Date(items[0].label);
-                                    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                    let fmt = { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+                                    if (interval === 'day' || interval === 'week') {
+                                        fmt = { month: 'short', day: 'numeric', year: 'numeric' };
+                                    } else if (interval === 'month') {
+                                        fmt = { month: 'long', year: 'numeric' };
+                                    }
+                                    return d.toLocaleString('en-US', fmt);
                                 },
-                                label: (context) => `${context.parsed.y.toLocaleString()} Active LeetCoders`
+                                label: (context) => `${context.parsed.y.toLocaleString()} New Submissions`
                             }
                         }
                     },
                     scales: {
                         x: {
-                            type: 'category',
-                            labels: data.map(d => d.timestamp.toLocaleString('en-US', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })),
+                            type: 'time',
+                            time: {
+                                unit: interval,
+                                tooltipFormat: 'PP pp',
+                                displayFormats: {
+                                    hour: 'MMM d, h:mm a',
+                                    day: 'MMM d',
+                                    week: 'MMM d',
+                                    month: 'MMM yyyy'
+                                }
+                            },
                             grid: { display: false },
                             ticks: {
-                                maxTicksLimit: 6,
+                                maxTicksLimit: 8,
                                 color: '#999',
                                 font: { size: 11 }
                             },
@@ -326,7 +460,7 @@
 
         // Load initial data
         if (INDICES.length > 0) {
-            loadData(INDICES[0]);
+            updateView();
         }
     </script>
 </body>
