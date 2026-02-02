@@ -99,7 +99,7 @@ def generate_html(indices: list, output_path: str):
         html_content = template.render(
             INDICES_JSON=json.dumps(js_indices),
             DATA_JSON=json.dumps(all_data),
-            GENERATED_AT=datetime.now().isoformat(),
+            GENERATED_AT=datetime.now().astimezone().isoformat(),
         )
     except Exception as e:
         print(f"Error rendering template: {e}", file=sys.stderr)
