@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script
         src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="aggregation.js"></script>
     <style>
         :root {
             --bg-color: #f8faf9;
@@ -210,157 +211,6 @@
             loadData(intervalSelect.value);
         }
 
-        function aggregateData(rawData, interval) {
-            const estimatedGapMs = 90 * 60 * 1000;
-            // 1. Calculate diffs with duration
-            const diffs = [];
-            let recoveryFloor = null;
-            for (let i = 1; i < rawData.length; i++) {
-                const current = rawData[i];
-                const prev = rawData[i - 1];
-                
-                const curTime = new Date(current.timestamp).getTime();
-                const prevTime = new Date(prev.timestamp).getTime();
-                const duration = curTime - prevTime; // Duration in ms
-
-                const curVal = current.total_submissions || 0;
-                const prevVal = prev.total_submissions || 0;
-
-                if (curVal <= 0 || prevVal <= 0) continue;
-                if (recoveryFloor !== null) {
-                    if (curVal >= recoveryFloor) recoveryFloor = null;
-                    continue;
-                }
-                if (curVal < prevVal) {
-                    recoveryFloor = prevVal;
-                    continue;
-                }
-
-                diffs.push({
-                    startTime: prevTime,
-                    endTime: curTime,
-                    value: curVal - prevVal,
-                    duration: duration,
-                    estimated: duration > estimatedGapMs
-                });
-            }
-
-            if (interval === 'raw') {
-                return diffs.map(d => ({
-                    timestamp: new Date(d.endTime),
-                    value: d.value
-                }));
-            }
-
-            // 2. Aggregate diffs into buckets
-            // We'll distribute the value proportionally to buckets.
-            const buckets = new Map();
-
-            // Helper to get bucket start time
-            function getBucketStart(ms, interval) {
-                const time = new Date(ms);
-                if (interval === 'hour') {
-                    time.setMinutes(0, 0, 0);
-                    return time.getTime();
-                } else if (interval === 'day') {
-                    time.setHours(0, 0, 0, 0);
-                    return time.getTime();
-                } else if (interval === 'week') {
-                    const day = time.getDay();
-                    const diff = time.getDate() - day;
-                    time.setDate(diff); // Set to Sunday
-                    time.setHours(0, 0, 0, 0);
-                    return time.getTime();
-                } else if (interval === 'month') {
-                    time.setDate(1);
-                    time.setHours(0, 0, 0, 0);
-                    return time.getTime();
-                }
-                return ms;
-            }
-
-            // Helper to get next bucket start
-            function getNextBucketStart(bucketStart, interval) {
-                const time = new Date(bucketStart);
-                if (interval === 'hour') time.setHours(time.getHours() + 1);
-                else if (interval === 'day') time.setDate(time.getDate() + 1);
-                else if (interval === 'week') time.setDate(time.getDate() + 7);
-                else if (interval === 'month') time.setMonth(time.getMonth() + 1);
-                return time.getTime();
-            }
-
-            diffs.forEach(d => {
-                if (d.value === 0 || d.duration <= 0) return;
-
-                let currentBucketStart = getBucketStart(d.startTime, interval);
-                const lastBucketStart = getBucketStart(d.endTime - 1, interval);
-                const estimatedContribution = d.estimated && currentBucketStart !== lastBucketStart;
-                let remainingDuration = d.duration;
-                let currentValue = d.value;
-                
-                // We assume uniform distribution of 'value' over 'duration' (rate = value/duration)
-                const rate = currentValue / remainingDuration;
-
-                // Iterate through buckets covered by this duration
-                // Start from the bucket covering startTime
-                let t = d.startTime;
-                
-                while (t < d.endTime) {
-                    const bucketEnd = getNextBucketStart(currentBucketStart, interval);
-                    
-                    // The overlap of this segment with the current bucket
-                    // Segment is [t, d.endTime]
-                    // Bucket is [currentBucketStart, bucketEnd]
-                    // But since we increment t, we just care about min(d.endTime, bucketEnd) - t
-                    
-                    const segmentEnd = Math.min(d.endTime, bucketEnd);
-                    const overlap = segmentEnd - t;
-                    
-                    if (overlap > 0) {
-                        const contribution = overlap * rate;
-                        const bucket = buckets.get(currentBucketStart) || { value: 0, estimated: false };
-                        bucket.value += contribution;
-                        bucket.estimated = bucket.estimated || estimatedContribution;
-                        buckets.set(currentBucketStart, bucket);
-                    }
-
-                    t = segmentEnd;
-                    if (t < d.endTime) {
-                         currentBucketStart = bucketEnd;
-                    }
-                }
-            });
-
-            // 3. Format result
-            const sortedKeys = Array.from(buckets.keys()).sort();
-            return sortedKeys.map(key => ({
-                timestamp: new Date(key),
-                value: Math.round(buckets.get(key).value),
-                estimated: buckets.get(key).estimated
-            }));
-        }
-
-        function chartWindow(data, interval) {
-            if (data.length === 0) return data;
-
-            const latestSampleTime = new Date(DATA[DATA.length - 1].timestamp).getTime();
-            const completeData = data.filter(point => {
-                const bucketEnd = new Date(point.timestamp);
-                if (interval === 'hour') bucketEnd.setHours(bucketEnd.getHours() + 1);
-                else if (interval === 'day') bucketEnd.setDate(bucketEnd.getDate() + 1);
-                else if (interval === 'week') bucketEnd.setDate(bucketEnd.getDate() + 7);
-                else if (interval === 'month') bucketEnd.setMonth(bucketEnd.getMonth() + 1);
-                return bucketEnd.getTime() <= latestSampleTime;
-            });
-            if (completeData.length === 0) return completeData;
-            if (interval === 'month') return completeData;
-
-            const latestTime = completeData[completeData.length - 1].timestamp.getTime();
-            const windowDays = interval === 'hour' ? 7 : interval === 'day' ? 90 : 365;
-            const cutoff = latestTime - windowDays * 24 * 60 * 60 * 1000;
-            return completeData.filter(point => point.timestamp.getTime() >= cutoff);
-        }
-
         function loadData(interval) {
             if (!DATA || DATA.length === 0) {
                 if (chart) chart.destroy();
@@ -370,35 +220,15 @@
                 return;
             }
 
-            const processedData = chartWindow(aggregateData(DATA, interval), interval);
+            const latestSampleTimestamp = DATA[DATA.length - 1].timestamp;
+            const processedData = PulseAggregation.chartWindow(
+                PulseAggregation.aggregateData(DATA, interval),
+                interval,
+                latestSampleTimestamp
+            );
 
             updateChart(processedData, interval);
             updateSummary(processedData, interval);
-        }
-
-        function formatBucket(timestamp, interval) {
-            const start = new Date(timestamp);
-            if (interval === 'hour') {
-                const end = new Date(start);
-                end.setHours(end.getHours() + 1);
-                const day = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric' });
-                const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric' });
-                return `between ${startTime} and ${endTime} on ${day}`;
-            }
-            if (interval === 'day') {
-                const day = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                return `on ${day}`;
-            }
-            if (interval === 'week') {
-                const end = new Date(start);
-                end.setDate(end.getDate() + 6);
-                const from = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                const to = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-                return `from ${from} to ${to}`;
-            }
-            const month = start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-            return `in ${month}`;
         }
 
         function updateSummary(data, interval) {
@@ -407,7 +237,7 @@
             const latestSample = DATA[DATA.length - 1];
             document.getElementById('currentValue').textContent = latestBucket.value.toLocaleString();
             const estimateLabel = latestBucket.estimated ? ' (estimated)' : '';
-            document.getElementById('currentBucket').textContent = `${formatBucket(latestBucket.timestamp, interval)}${estimateLabel}`;
+            document.getElementById('currentBucket').textContent = `${PulseAggregation.formatBucket(latestBucket.timestamp, interval)}${estimateLabel}`;
             document.getElementById('lastUpdate').textContent = new Date(latestSample.timestamp).toLocaleString('en-US', {
                     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                     timeZoneName: 'short'

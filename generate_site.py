@@ -4,6 +4,7 @@
 import argparse
 import csv
 import json
+import shutil
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -80,6 +81,10 @@ def generate_html(config: dict, output_path: Path) -> None:
         output_path = PROJECT_ROOT / output_path
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(html)
+    shutil.copyfile(
+        PROJECT_ROOT / "static" / "aggregation.js",
+        output_path.parent / "aggregation.js",
+    )
     print(f"Successfully generated {output_path}")
 
 
