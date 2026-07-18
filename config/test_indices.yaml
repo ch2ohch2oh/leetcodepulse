@@ -2,3 +2,4 @@ problem:
   name: "Two Sum Test"
   slug: "two-sum"
   output_file: "data/test_stats.csv"
+  history_days: 730

@@ -5,6 +5,7 @@ import argparse
 import csv
 import json
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import yaml
@@ -23,11 +24,11 @@ def load_config(config_path: Path) -> dict:
         raise SystemExit(1) from exc
 
 
-def parse_csv(file_path: Path) -> list[dict]:
+def parse_csv(file_path: Path, history_days: int) -> list[dict]:
     if not file_path.exists():
         return []
 
-    data = []
+    parsed_rows = []
     try:
         with file_path.open() as source:
             for row in csv.DictReader(source):
@@ -36,21 +37,32 @@ def parse_csv(file_path: Path) -> list[dict]:
                 if not timestamp or total is None:
                     continue
                 try:
-                    data.append(
-                        {"timestamp": timestamp, "total_submissions": int(total)}
+                    parsed_rows.append(
+                        (
+                            datetime.fromisoformat(timestamp),
+                            {"timestamp": timestamp, "total_submissions": int(total)},
+                        )
                     )
                 except ValueError:
                     continue
     except OSError as exc:
         print(f"Unable to parse {file_path}: {exc}", file=sys.stderr)
-    return data
+    if not parsed_rows:
+        return []
+
+    parsed_rows.sort(key=lambda item: item[0])
+    cutoff = parsed_rows[-1][0] - timedelta(days=history_days)
+    return [row for timestamp, row in parsed_rows if timestamp >= cutoff]
 
 
 def generate_html(config: dict, output_path: Path) -> None:
     problem = config.get("problem", {})
     data_file = problem.get("output_file")
+    history_days = problem.get("history_days", 730)
     if not data_file:
         raise ValueError("config must define problem.output_file")
+    if not isinstance(history_days, int) or history_days <= 0:
+        raise ValueError("problem.history_days must be a positive integer")
 
     data_path = Path(data_file)
     if not data_path.is_absolute():
@@ -59,7 +71,9 @@ def generate_html(config: dict, output_path: Path) -> None:
     env = Environment(loader=FileSystemLoader(str(PROJECT_ROOT / "templates")))
     template = env.get_template("template.html")
     html = template.render(
-        DATA_JSON=json.dumps(parse_csv(data_path)),
+        DATA_JSON=json.dumps(
+            parse_csv(data_path, history_days), separators=(",", ":")
+        ),
     )
 
     if not output_path.is_absolute():
