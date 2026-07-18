@@ -24,6 +24,20 @@ def load_config(config_path: Path) -> dict:
         raise SystemExit(1) from exc
 
 
+def read_last_total(output_path: Path) -> int | None:
+    if not output_path.exists():
+        return None
+
+    last_total = None
+    with output_path.open(newline="") as source:
+        for row in csv.DictReader(source):
+            try:
+                last_total = int(row["total_submissions"])
+            except (KeyError, TypeError, ValueError):
+                continue
+    return last_total
+
+
 def collect(config: dict, verbose: bool = False) -> dict:
     problem = config.get("problem", {})
     slug = problem.get("slug")
@@ -39,6 +53,13 @@ def collect(config: dict, verbose: bool = False) -> dict:
     if not output_path.is_absolute():
         output_path = PROJECT_ROOT / output_path
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    previous_total = read_last_total(output_path)
+    if previous_total is not None and total_submissions < previous_total:
+        raise RuntimeError(
+            "submission counter decreased "
+            f"from {previous_total:,} to {total_submissions:,}; no sample was written"
+        )
 
     row = {
         "timestamp": datetime.now(timezone.utc).isoformat(),

@@ -214,6 +214,7 @@
             const estimatedGapMs = 90 * 60 * 1000;
             // 1. Calculate diffs with duration
             const diffs = [];
+            let recoveryFloor = null;
             for (let i = 1; i < rawData.length; i++) {
                 const current = rawData[i];
                 const prev = rawData[i - 1];
@@ -222,19 +223,23 @@
                 const prevTime = new Date(prev.timestamp).getTime();
                 const duration = curTime - prevTime; // Duration in ms
 
-                let val = 0;
                 const curVal = current.total_submissions || 0;
                 const prevVal = prev.total_submissions || 0;
 
-                if (curVal > 0 && prevVal > 0) {
-                    val = curVal - prevVal;
-                    if (val < 0) val = 0;
+                if (curVal <= 0 || prevVal <= 0) continue;
+                if (recoveryFloor !== null) {
+                    if (curVal >= recoveryFloor) recoveryFloor = null;
+                    continue;
+                }
+                if (curVal < prevVal) {
+                    recoveryFloor = prevVal;
+                    continue;
                 }
 
                 diffs.push({
                     startTime: prevTime,
                     endTime: curTime,
-                    value: val,
+                    value: curVal - prevVal,
                     duration: duration,
                     estimated: duration > estimatedGapMs
                 });
