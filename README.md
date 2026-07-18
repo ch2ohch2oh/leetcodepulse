@@ -8,8 +8,12 @@ of coding activity.
 
 [View Two Sum Pulse](https://ch2ohch2oh.github.io/leetcodepulse/)
 
-The dashboard shows new Two Sum submissions over a rolling hour, day, week, or
-month and charts the historical rate for the selected interval.
+The dashboard groups new Two Sum submissions into completed calendar hours,
+days, weeks, or months. Times are shown in the viewer's local timezone. Values
+spread across a collection gap are identified as estimates in the chart.
+
+The hourly view shows the latest seven days, daily shows 90 days, weekly shows
+one year, and monthly shows the retained history (two years by default).
 
 ## Update locally
 

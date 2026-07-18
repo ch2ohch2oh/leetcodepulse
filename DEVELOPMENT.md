@@ -24,7 +24,8 @@ CSV format:
 timestamp,total_submissions
 ```
 
-The active problem and output file are configured in `config/indices.yaml`.
+The active problem, output file, and generated history limit are configured in
+`config/indices.yaml`.
 
 ## Generate the site
 
@@ -32,7 +33,20 @@ The active problem and output file are configured in `config/indices.yaml`.
 venv/bin/python generate_site.py
 ```
 
-The generated dashboard is written to `public/index.html`.
+The generated dashboard and its aggregation script are written to `public/`.
+Only completed calendar buckets are displayed. Bucket boundaries and labels use
+the viewer's local timezone. When a collection gap longer than 90 minutes spans
+multiple displayed buckets, those values are marked as estimated because the
+submissions are distributed uniformly across the gap.
+
+## Test the aggregation
+
+```bash
+TZ=America/New_York node --test tests/test_aggregation.js
+```
+
+The tests cover normal aggregation, collection gaps, cumulative-counter
+regressions, completed buckets, display windows, and local-time boundaries.
 
 ## Run both steps
 
