@@ -8,7 +8,10 @@ cd "$script_dir"
 # Load environment variables from .env if it exists
 if [ -f ".env" ]; then
     echo "Loading environment variables from .env"
-    export $(grep -v '^#' .env | xargs)
+    set -a
+    # shellcheck disable=SC1091
+    source "$script_dir/.env"
+    set +a
 fi
 
 # Configuration - update with your repo details
@@ -33,16 +36,16 @@ echo "========================================"
 # Add data files and generated html
 git add data/ 
 
-# Prepare git commit with optional bot identity
-GIT_COMMIT_CMD="git"
-if [ -n "$GIT_USER_NAME" ]; then
-    GIT_COMMIT_CMD="$GIT_COMMIT_CMD -c user.name=\"$GIT_USER_NAME\""
+# Prepare git commit with optional bot identity.
+git_commit_args=()
+if [ -n "${GIT_USER_NAME:-}" ]; then
+    git_commit_args+=(-c "user.name=$GIT_USER_NAME")
 fi
-if [ -n "$GIT_USER_EMAIL" ]; then
-    GIT_COMMIT_CMD="$GIT_COMMIT_CMD -c user.email=\"$GIT_USER_EMAIL\""
+if [ -n "${GIT_USER_EMAIL:-}" ]; then
+    git_commit_args+=(-c "user.email=$GIT_USER_EMAIL")
 fi
 
-$GIT_COMMIT_CMD commit -m "Auto-update: $(date '+%Y-%m-%d %H:%M:%S')"
+git "${git_commit_args[@]}" commit -m "Auto-update: $(date '+%Y-%m-%d %H:%M:%S')"
 
 if [ -n "${GITHUB_TOKEN:-}" ]; then
     echo "Pushing to remote using token..."
