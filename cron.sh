@@ -44,13 +44,11 @@ fi
 
 $GIT_COMMIT_CMD commit -m "Auto-update: $(date '+%Y-%m-%d %H:%M:%S')"
 
-# Use GITHUB_TOKEN if available
-TOKEN="${GITHUB_TOKEN}"
-
-if [ -n "$TOKEN" ]; then
+if [ -n "${GITHUB_TOKEN:-}" ]; then
     echo "Pushing to remote using token..."
-    # Hide token from output if it was printed, but here we just use it in the URL
-    git push "https://${TOKEN}@${REPO_URL}" main
+    GIT_ASKPASS="$script_dir/scripts/git-askpass.sh" \
+        GIT_TERMINAL_PROMPT=0 \
+        git push "https://${REPO_URL}" main
 else
     echo "Warning: github_token not set. Attempting default push..."
     git push origin main
