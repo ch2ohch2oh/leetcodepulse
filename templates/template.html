@@ -211,6 +211,7 @@
         }
 
         function aggregateData(rawData, interval) {
+            const estimatedGapMs = 90 * 60 * 1000;
             // 1. Calculate diffs with duration
             const diffs = [];
             for (let i = 1; i < rawData.length; i++) {
@@ -234,7 +235,8 @@
                     startTime: prevTime,
                     endTime: curTime,
                     value: val,
-                    duration: duration
+                    duration: duration,
+                    estimated: duration > estimatedGapMs
                 });
             }
 
@@ -286,6 +288,8 @@
                 if (d.value === 0 || d.duration <= 0) return;
 
                 let currentBucketStart = getBucketStart(d.startTime, interval);
+                const lastBucketStart = getBucketStart(d.endTime - 1, interval);
+                const estimatedContribution = d.estimated && currentBucketStart !== lastBucketStart;
                 let remainingDuration = d.duration;
                 let currentValue = d.value;
                 
@@ -309,11 +313,10 @@
                     
                     if (overlap > 0) {
                         const contribution = overlap * rate;
-                        
-                        if (!buckets.has(currentBucketStart)) {
-                            buckets.set(currentBucketStart, 0);
-                        }
-                        buckets.set(currentBucketStart, buckets.get(currentBucketStart) + contribution);
+                        const bucket = buckets.get(currentBucketStart) || { value: 0, estimated: false };
+                        bucket.value += contribution;
+                        bucket.estimated = bucket.estimated || estimatedContribution;
+                        buckets.set(currentBucketStart, bucket);
                     }
 
                     t = segmentEnd;
@@ -327,8 +330,8 @@
             const sortedKeys = Array.from(buckets.keys()).sort();
             return sortedKeys.map(key => ({
                 timestamp: new Date(key),
-                value: Math.round(buckets.get(key)), // Round back to integer
-                raw_submissions: 0
+                value: Math.round(buckets.get(key).value),
+                estimated: buckets.get(key).estimated
             }));
         }
 
@@ -398,7 +401,8 @@
             const latestBucket = data[data.length - 1];
             const latestSample = DATA[DATA.length - 1];
             document.getElementById('currentValue').textContent = latestBucket.value.toLocaleString();
-            document.getElementById('currentBucket').textContent = formatBucket(latestBucket.timestamp, interval);
+            const estimateLabel = latestBucket.estimated ? ' (estimated)' : '';
+            document.getElementById('currentBucket').textContent = `${formatBucket(latestBucket.timestamp, interval)}${estimateLabel}`;
             document.getElementById('lastUpdate').textContent = new Date(latestSample.timestamp).toLocaleString('en-US', {
                     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                     timeZoneName: 'short'
@@ -416,7 +420,7 @@
                 data: {
                     datasets: [{
                         label: labelText,
-                        data: data.map(d => ({ x: d.timestamp, y: d.value })),
+                        data: data.map(d => ({ x: d.timestamp, y: d.value, estimated: d.estimated })),
                         borderColor: '#28766e',
                         borderWidth: 1.5,
                         backgroundColor: 'rgba(0,0,0,0)',
@@ -427,18 +431,7 @@
                         segment: {
                             borderDash: ctx => {
                                 if (ctx.p0.skip || ctx.p1.skip) return undefined;
-
-                                // Calculate expected interval in ms
-                                let expected = 0;
-                                if (interval === 'hour') expected = 3600000;
-                                else if (interval === 'day') expected = 86400000;
-                                else if (interval === 'week') expected = 604800000;
-                                else if (interval === 'month') expected = 2592000000;
-
-                                // If difference is significantly larger (> 1.5x) than expected, make it dashed
-                                if (expected > 0 && (ctx.p1.parsed.x - ctx.p0.parsed.x) > expected * 1.5) {
-                                    return [6, 6];
-                                }
+                                if (ctx.p0.raw.estimated || ctx.p1.raw.estimated) return [6, 6];
                                 return undefined;
                             }
                         }
@@ -472,7 +465,10 @@
                                     }
                                     return d.toLocaleString('en-US', fmt);
                                 },
-                                label: (context) => `${context.parsed.y.toLocaleString()} attempts submitted`
+                                label: (context) => {
+                                    const suffix = context.raw.estimated ? ' (estimated)' : '';
+                                    return `${context.parsed.y.toLocaleString()} attempts submitted${suffix}`;
+                                }
                             }
                         }
                     },
