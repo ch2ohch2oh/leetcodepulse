@@ -1,38 +1,26 @@
-# LeetCode Pulse
+# Two Sum Pulse
 
-A monitoring system that tracks real-time solver activity across various LeetCode problem sets. The system aggregates the total number of users currently viewing problems to provide a live "pulse" of activity on the platform.
+A tiny activity monitor for LeetCode. It uses the number of new submissions to
+[Two Sum](https://leetcode.com/problems/two-sum/) as a simple, recognizable pulse
+of coding activity.
 
-## 🚀 Live Demo
+## Live dashboard
 
-[View the live dashboard](https://ch2ohch2oh.github.io/leetcodepulse/)
+[View Two Sum Pulse](https://ch2ohch2oh.github.io/leetcodepulse/)
 
-## 📊 Features
+The dashboard shows new Two Sum submissions over a rolling hour, day, week, or
+month and charts the historical rate for the selected interval.
 
-- **Real-time Monitoring**: Tracks concurrent users across multiple LeetCode problem sets.
-- **Historical Data**: Stores aggregated activity data for trend analysis.
-- **Interactive Dashboard**: Visualizes global activity trends over time.
-- **Automated Deployment**: GitHub Actions workflow for seamless dashboard updates.
+## Update locally
 
-## ⚡ Quick Start
-
-### 1. Update Data
-If you have the environment set up, run the update script:
 ```bash
 ./update_site.sh
 ```
 
-### 2. View Dashboard
-Open `public/index.html` in your browser or check the live demo.
+This fetches one cumulative submission counter from LeetCode, appends it to
+`data/twosum_stats.csv`, and generates `public/index.html`.
 
-## 🛠 Development & Setup
-
-For detailed instructions on:
-- Setting up the Python virtual environment
-- Script usage and command-line flags
-- Scheduling automated updates with Cron
-- Data file formats
-
-Please refer to [DEVELOPMENT.md](DEVELOPMENT.md).
+See [DEVELOPMENT.md](DEVELOPMENT.md) for setup and automation details.
 
 ## License
 

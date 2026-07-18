@@ -1,146 +1,90 @@
 #!/usr/bin/env python3
-"""
-Generates the static site (index.html) based on the indices configuration.
-"""
+"""Generate the static Two Sum Pulse dashboard."""
 
 import argparse
-import sys
-import yaml
 import csv
+import json
+import sys
 from pathlib import Path
-from datetime import datetime
+
+import yaml
+from jinja2 import Environment, FileSystemLoader
 
 
-def load_config(config_path: str) -> dict:
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+
+def load_config(config_path: Path) -> dict:
     try:
-        with open(config_path, "r") as f:
-            return yaml.safe_load(f)
-    except Exception as e:
-        print(f"Error loading config: {e}", file=sys.stderr)
-        sys.exit(1)
+        with config_path.open() as config_file:
+            return yaml.safe_load(config_file) or {}
+    except (OSError, yaml.YAMLError) as exc:
+        print(f"Unable to load {config_path}: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
 
 
-def parse_csv(file_path: str) -> list:
+def parse_csv(file_path: Path) -> list[dict]:
+    if not file_path.exists():
+        return []
+
     data = []
-    path = Path(file_path)
-    if not path.exists():
-        return data
-
     try:
-        with open(path, "r") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
+        with file_path.open() as source:
+            for row in csv.DictReader(source):
+                timestamp = row.get("timestamp")
+                total = row.get("total_submissions")
+                if not timestamp or total is None:
+                    continue
                 try:
-                    # Validate we can parse it
-                    # live_users might be 0 for new data
-                    timestamp = row.get("timestamp")
-
-                    # Support both old and new column names for backward compatibility (though we migrated data)
-                    live = row.get("live_users") or row.get("total_users") or "0"
-
-                    total_accepted = row.get("total_accepted", "0")
-                    total_submissions = row.get("total_submissions", "0")
-                    problems_failed = int(row.get("problems_failed", "0"))
-
-                    if problems_failed > 0:
-                        continue
-
                     data.append(
-                        {
-                            "timestamp": timestamp,
-                            "live_users": int(live),
-                            "total_accepted": int(total_accepted),
-                            "total_submissions": int(total_submissions),
-                        }
+                        {"timestamp": timestamp, "total_submissions": int(total)}
                     )
                 except ValueError:
                     continue
-    except Exception as e:
-        print(f"Error parsing {file_path}: {e}", file=sys.stderr)
+    except OSError as exc:
+        print(f"Unable to parse {file_path}: {exc}", file=sys.stderr)
     return data
 
 
-def generate_html(indices: list, output_path: str):
-    js_indices = []
-    all_data = {}
+def generate_html(config: dict, output_path: Path) -> None:
+    problem = config.get("problem", {})
+    data_file = problem.get("output_file")
+    if not data_file:
+        raise ValueError("config must define problem.output_file")
 
-    for idx in indices:
-        # Indices info for dropdown
-        js_indices.append(
-            {
-                "id": idx.get("id"),
-                "name": idx.get("name"),
-                "description": idx.get("description", ""),
-            }
-        )
+    data_path = Path(data_file)
+    if not data_path.is_absolute():
+        data_path = PROJECT_ROOT / data_path
 
-        # Read data
-        input_csv = idx.get("output_file", "")
-        # The output_file in config is relative to project root, e.g. "data/leetcode75_stats.csv"
-        # We run this script from project root, so strictly speaking it should work directly.
-        # But if output_file is missing, we just pass empty list.
-
-        all_data[idx.get("id")] = parse_csv(input_csv)
-
-    # Read template from file
-    template_path = Path("templates/template.html")
-    # Inject JSON
-    import json
-
-    # Setup Jinja2 environment
-    from jinja2 import Environment, FileSystemLoader
-
-    # We want to load the template from its parent directory
-    # template_path is "site/template.html" or absolute path.
-    # Let's resolve the directory and filename.
-    template_dir = template_path.parent
-    template_name = template_path.name
-
-    try:
-        env = Environment(loader=FileSystemLoader(str(template_dir)))
-        template = env.get_template(template_name)
-
-        html_content = template.render(
-            INDICES_JSON=json.dumps(js_indices),
-            DATA_JSON=json.dumps(all_data),
-            GENERATED_AT=datetime.now().astimezone().isoformat(),
-        )
-    except Exception as e:
-        print(f"Error rendering template: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    try:
-        out_path_obj = Path(output_path)
-        out_path_obj.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_path_obj, "w") as f:
-            f.write(html_content)
-        print(f"Successfully generated {output_path}")
-    except Exception as e:
-        print(f"Error writing HTML: {e}", file=sys.stderr)
-        sys.exit(1)
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Generate static site from indices config."
+    env = Environment(loader=FileSystemLoader(str(PROJECT_ROOT / "templates")))
+    template = env.get_template("template.html")
+    html = template.render(
+        DATA_JSON=json.dumps(parse_csv(data_path)),
     )
+
+    if not output_path.is_absolute():
+        output_path = PROJECT_ROOT / output_path
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html)
+    print(f"Successfully generated {output_path}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "-c", "--config", default="config/indices.yaml", help="Path to indices config"
+        "-c",
+        "--config",
+        type=Path,
+        default=PROJECT_ROOT / "config" / "indices.yaml",
     )
-    parser.add_argument(
-        "-o", "--output", default="public/index.html", help="Output HTML file path"
-    )
-
+    parser.add_argument("-o", "--output", type=Path, default=Path("public/index.html"))
     args = parser.parse_args()
 
-    config = load_config(args.config)
-    indices = config.get("indices", [])
-
-    if not indices:
-        print("No indices found in config.", file=sys.stderr)
-        sys.exit(1)
-
-    generate_html(indices, args.output)
+    try:
+        generate_html(load_config(args.config), args.output)
+    except (OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
 
 
 if __name__ == "__main__":

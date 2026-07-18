@@ -4,17 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeetCode Pulse</title>
+    <title>Two Sum Pulse</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script
         src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <style>
         :root {
-            --bg-color: #ffffff;
-            --text-color: #333333;
-            --secondary-text: #666666;
-            --accent-color: #000000;
-            --border-color: #eaeaea;
+            --bg-color: #f8faf9;
+            --text-color: #28312f;
+            --secondary-text: #687471;
+            --accent-color: #28766e;
+            --border-color: #e2eae7;
         }
 
         * {
@@ -34,7 +34,7 @@
         }
 
         header {
-            margin-bottom: 4rem;
+            margin-bottom: 3rem;
         }
 
         h1 {
@@ -58,7 +58,8 @@
         }
 
         select {
-            padding: 0.2rem 0.4rem;
+            min-height: 36px;
+            padding: 0.35rem 0.6rem;
             font-size: inherit;
             border: 1px solid var(--border-color);
             border-radius: 4px;
@@ -68,28 +69,26 @@
             font-family: inherit;
         }
 
-        select:focus {
-            outline: none;
-            border-bottom-color: var(--accent-color);
+        select:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 2px;
         }
 
-        .stats-summary {
+        .chart-header {
             display: flex;
-            flex-wrap: wrap;
-            gap: 0.25rem;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-            color: var(--text-color);
-            align-items: center;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 1rem;
+            margin-bottom: 1rem;
         }
 
+        .chart-current {
+            max-width: 620px;
+            color: var(--text-color);
+        }
 
-
-        .index-description {
-            margin-top: 0.25rem;
-            font-size: 0.85rem;
-            color: #888;
-            max-width: 600px;
+        .current-number {
+            color: var(--accent-color);
         }
 
         .header-description {
@@ -99,8 +98,17 @@
             margin-bottom: 2rem;
         }
 
+        .header-description a {
+            color: inherit;
+            text-decoration-color: var(--accent-color);
+            text-underline-offset: 0.18em;
+        }
+
+        .header-description a:hover {
+            color: var(--text-color);
+        }
+
         .chart-wrapper {
-            margin-top: 1.5rem;
             position: relative;
             height: 550px;
             width: 100%;
@@ -109,7 +117,7 @@
         footer {
             margin-top: 6rem;
             padding: 2rem 0;
-            border-top: 1px solid #eee;
+            border-top: 1px solid var(--border-color);
             font-size: 0.8rem;
             color: var(--secondary-text);
             text-align: center;
@@ -135,7 +143,7 @@
 
             header {
                 text-align: center;
-                margin-bottom: 3rem;
+                margin-bottom: 2.5rem;
             }
 
             .header-description {
@@ -144,20 +152,13 @@
                 margin-bottom: 1.5rem;
             }
 
-            .stats-summary {
-                justify-content: center;
-                text-align: center;
-                gap: 0.25rem;
-                margin-top: 1.5rem;
-            }
-
-            .stat-item {
-                width: 100%;
+            .chart-header {
+                align-items: center;
+                text-align: left;
             }
 
             .chart-wrapper {
                 height: 300px;
-                margin-top: 1.5rem;
             }
 
             footer {
@@ -169,86 +170,47 @@
 
 <body>
     <header>
-        <h1>LeetCode Pulse</h1>
-        <p class="header-description">We track the panic so you don’t have to.</p>
+        <h1>Two Sum Pulse</h1>
+        <p class="header-description"><a href="https://leetcode.com/problems/two-sum/" target="_blank" rel="noopener noreferrer">Two Sum</a> is a popular coding-interview puzzle. We use how often people practice it as a rough pulse of the tech job market.</p>
 
-        <div class="stats-summary" id="statsSummary">
-            <span id="currentValue">-</span>
-            new
-            <select id="metricSelect">
-                <option value="total_submissions" selected>submissions</option>
-                <option value="total_accepted">accepted</option>
-            </select>
-            for
-            <select id="indexSelect">
-                <!-- Options will be populated by JS -->
-            </select>
-            during the past
-            <select id="intervalSelect" style="padding: 0.1rem 0.3rem;">
-                <option value="hour" selected>hour</option>
-                <option value="day">day</option>
-                <option value="week">week</option>
-                <option value="month">month</option>
-            </select>
-        </div>
-        <div id="indexDescription" style="display: none;"></div>
     </header>
+
+    <div class="chart-header">
+        <div class="chart-current" id="chartSummary" aria-live="polite">
+            <span class="current-number" id="currentValue">-</span> attempts were submitted <span id="currentBucket">-</span>.
+        </div>
+        <select id="intervalSelect" aria-label="Aggregation granularity">
+            <option value="hour" selected>Hourly</option>
+            <option value="day">Daily</option>
+            <option value="week">Weekly</option>
+            <option value="month">Monthly</option>
+        </select>
+    </div>
 
     <div class="chart-wrapper">
         <canvas id="chart"></canvas>
     </div>
 
     <footer>
-        <p>© 2026 LeetCode Pulse • Last updated <span id="lastUpdate">-</span></p>
+        <p>© 2026 Two Sum Pulse • Data through <span id="lastUpdate">-</span></p>
     </footer>
 
     <script>
-        // Configuration injected by generator
-        // Configuration injected by generator
-        const INDICES = {{ INDICES_JSON | safe }};
-        const ALL_DATA = {{ DATA_JSON | safe }};
-        const GENERATED_AT = "{{ GENERATED_AT }}";
-
+        // Data injected by the generator
+        const DATA = {{ DATA_JSON | safe }};
         let chart = null;
-        let currentRawData = [];
 
-        // Initialize Dropdowns
-        const indexSelect = document.getElementById('indexSelect');
         const intervalSelect = document.getElementById('intervalSelect');
-        const metricSelect = document.getElementById('metricSelect');
 
-        INDICES.forEach(idx => {
-            const option = document.createElement('option');
-            option.value = idx.id;
-            option.textContent = idx.name;
-            indexSelect.appendChild(option);
-        });
-
-        // Event Listeners
-        indexSelect.addEventListener('change', (e) => {
-            updateView();
-        });
-
-        intervalSelect.addEventListener('change', (e) => {
-            updateView();
-        });
-
-        metricSelect.addEventListener('change', (e) => {
+        intervalSelect.addEventListener('change', () => {
             updateView();
         });
 
         function updateView() {
-            const selectedId = indexSelect.value;
-            const indexConfig = INDICES.find(i => i.id === selectedId);
-            if (indexConfig) {
-                // Determine interval
-                const interval = intervalSelect.value;
-                const metric = metricSelect.value;
-                loadData(indexConfig, interval, metric);
-            }
+            loadData(intervalSelect.value);
         }
 
-        function aggregateData(rawData, interval, metric) {
+        function aggregateData(rawData, interval) {
             // 1. Calculate diffs with duration
             const diffs = [];
             for (let i = 1; i < rawData.length; i++) {
@@ -260,8 +222,8 @@
                 const duration = curTime - prevTime; // Duration in ms
 
                 let val = 0;
-                const curVal = current[metric] || 0;
-                const prevVal = prev[metric] || 0;
+                const curVal = current.total_submissions || 0;
+                const prevVal = prev.total_submissions || 0;
 
                 if (curVal > 0 && prevVal > 0) {
                     val = curVal - prevVal;
@@ -370,55 +332,82 @@
             }));
         }
 
-        function loadData(indexConfig, interval, metric) {
-            const rawData = ALL_DATA[indexConfig.id];
+        function chartWindow(data, interval) {
+            if (data.length === 0) return data;
 
-            if (!rawData || rawData.length === 0) {
-                console.warn(`No data for ${indexConfig.name}`);
+            const latestSampleTime = new Date(DATA[DATA.length - 1].timestamp).getTime();
+            const completeData = data.filter(point => {
+                const bucketEnd = new Date(point.timestamp);
+                if (interval === 'hour') bucketEnd.setHours(bucketEnd.getHours() + 1);
+                else if (interval === 'day') bucketEnd.setDate(bucketEnd.getDate() + 1);
+                else if (interval === 'week') bucketEnd.setDate(bucketEnd.getDate() + 7);
+                else if (interval === 'month') bucketEnd.setMonth(bucketEnd.getMonth() + 1);
+                return bucketEnd.getTime() <= latestSampleTime;
+            });
+            if (completeData.length === 0) return completeData;
+            if (interval === 'month') return completeData;
+
+            const latestTime = completeData[completeData.length - 1].timestamp.getTime();
+            const windowDays = interval === 'hour' ? 7 : interval === 'day' ? 90 : 365;
+            const cutoff = latestTime - windowDays * 24 * 60 * 60 * 1000;
+            return completeData.filter(point => point.timestamp.getTime() >= cutoff);
+        }
+
+        function loadData(interval) {
+            if (!DATA || DATA.length === 0) {
                 if (chart) chart.destroy();
                 document.getElementById('currentValue').textContent = '-';
+                document.getElementById('currentBucket').textContent = '-';
                 document.getElementById('lastUpdate').textContent = '-';
                 return;
             }
 
-            const processedData = aggregateData(rawData, interval, metric);
+            const processedData = chartWindow(aggregateData(DATA, interval), interval);
 
-            updateChart(processedData, indexConfig.name, interval, metric);
-            updateSummary(processedData, indexConfig, metric);
+            updateChart(processedData, interval);
+            updateSummary(processedData, interval);
         }
 
-        function updateSummary(data, indexConfig, metric) {
+        function formatBucket(timestamp, interval) {
+            const start = new Date(timestamp);
+            if (interval === 'hour') {
+                const end = new Date(start);
+                end.setHours(end.getHours() + 1);
+                const day = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const startTime = start.toLocaleTimeString('en-US', { hour: 'numeric' });
+                const endTime = end.toLocaleTimeString('en-US', { hour: 'numeric' });
+                return `between ${startTime} and ${endTime} on ${day}`;
+            }
+            if (interval === 'day') {
+                const day = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                return `on ${day}`;
+            }
+            if (interval === 'week') {
+                const end = new Date(start);
+                end.setDate(end.getDate() + 6);
+                const from = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const to = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                return `from ${from} to ${to}`;
+            }
+            const month = start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            return `in ${month}`;
+        }
+
+        function updateSummary(data, interval) {
             if (!data || data.length === 0) return;
-            const latest = data[data.length - 1];
-
-            if (GENERATED_AT) {
-                document.getElementById('lastUpdate').textContent = new Date(GENERATED_AT).toLocaleString('en-US', {
+            const latestBucket = data[data.length - 1];
+            const latestSample = DATA[DATA.length - 1];
+            document.getElementById('currentValue').textContent = latestBucket.value.toLocaleString();
+            document.getElementById('currentBucket').textContent = formatBucket(latestBucket.timestamp, interval);
+            document.getElementById('lastUpdate').textContent = new Date(latestSample.timestamp).toLocaleString('en-US', {
                     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-                    timeZone: 'America/New_York', timeZoneName: 'short'
-                });
-            }
-
-            // Show new submissions if available, otherwise fallback
-            // For the summary, maybe showing "Total Active" (which is now new submissions rate)
-            // or we could show Total Submissions.
-            // Let's show the rate since that's what the chart shows.
-            document.getElementById('currentValue').textContent = latest.value.toLocaleString();
-
-            // Update label to reflect metric
-            // We can't easily change the text "leetcoders currently working on" in the HTML without selection logic
-            // But let's leave it for now or assume the user knows context changes.
-            // Ideally we change existing text: "New submissions in last interval for"
-
-            document.getElementById('indexDescription').textContent = indexConfig.description || '';
+                    timeZoneName: 'short'
+            });
         }
 
-        function updateChart(data, label, interval, metric) {
+        function updateChart(data, interval) {
             const ctx = document.getElementById('chart').getContext('2d');
-
-            let labelText = "New Submissions";
-            if (metric === 'total_accepted') {
-                labelText = "Accepted Solutions";
-            }
+            const labelText = "Attempts submitted";
 
             if (chart) chart.destroy();
 
@@ -428,12 +417,12 @@
                     datasets: [{
                         label: labelText,
                         data: data.map(d => ({ x: d.timestamp, y: d.value })),
-                        borderColor: '#000000',
+                        borderColor: '#28766e',
                         borderWidth: 1.5,
                         backgroundColor: 'rgba(0,0,0,0)',
                         pointRadius: 0,
                         pointHoverRadius: 4,
-                        pointHoverBackgroundColor: '#000000',
+                        pointHoverBackgroundColor: '#28766e',
                         tension: 0,
                         segment: {
                             borderDash: ctx => {
@@ -468,7 +457,7 @@
                             backgroundColor: '#fff',
                             titleColor: '#666',
                             bodyColor: '#000',
-                            borderColor: '#eaeaea',
+                            borderColor: '#e2eae7',
                             borderWidth: 1,
                             padding: 10,
                             displayColors: false,
@@ -483,7 +472,7 @@
                                     }
                                     return d.toLocaleString('en-US', fmt);
                                 },
-                                label: (context) => `${context.parsed.y.toLocaleString()} ${labelText}`
+                                label: (context) => `${context.parsed.y.toLocaleString()} attempts submitted`
                             }
                         }
                     },
@@ -503,18 +492,18 @@
                             grid: { display: false },
                             ticks: {
                                 maxTicksLimit: 8,
-                                color: '#999',
+                                color: '#788582',
                                 font: { size: 11 }
                             },
                             border: { display: false }
                         },
                         y: {
                             grid: {
-                                color: '#f5f5f5',
+                                color: '#e7eeec',
                                 drawBorder: false,
                             },
                             ticks: {
-                                color: '#999',
+                                color: '#788582',
                                 font: { size: 11 }
                             },
                             border: { display: false } // Remove Y axis line
@@ -524,10 +513,7 @@
             });
         }
 
-        // Load initial data
-        if (INDICES.length > 0) {
-            updateView();
-        }
+        updateView();
     </script>
 </body>
 

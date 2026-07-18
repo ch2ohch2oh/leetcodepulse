@@ -1,5 +1,4 @@
-indices:
-  - name: "Test Index"
-    id: "test"
-    input_file: "data/test_problems.txt"
-    output_file: "data/test_stats.csv"
+problem:
+  name: "Two Sum Test"
+  slug: "two-sum"
+  output_file: "data/test_stats.csv"
